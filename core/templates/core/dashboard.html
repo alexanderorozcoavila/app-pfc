@@ -1,0 +1,266 @@
+{% extends 'core/base.html' %}
+{% load custom_filters %}
+
+{% block content %}
+<header class="flex justify-between items-center mb-8">
+    <h1 class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">PFC Dashboard</h1>
+    <span class="text-lg font-medium text-gray-500 bg-white px-4 py-2 rounded-full shadow-sm border border-gray-100">Mes: {{ month }}/{{ year }}</span>
+</header>
+
+<!-- Summary Cards -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+        <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Ingresos Real vs Plan</h2>
+        <div class="text-3xl font-bold text-green-600 mt-2">${{ ingresos_reales|clp }}</div>
+        <div class="text-sm text-gray-400 mt-1">Planificado: ${{ ingresos_planificados|clp }}</div>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow">
+        <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Gastos Real vs Plan</h2>
+        <div class="text-3xl font-bold text-red-600 mt-2">${{ gastos_reales|clp }}</div>
+        <div class="text-sm text-gray-400 mt-1">Planificado: ${{ gastos_planificados|clp }}</div>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow border-l-4 border-l-blue-500">
+        <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Remanente Ahorro Real vs Plan</h2>
+        <div class="text-3xl font-bold text-blue-600 mt-2">${{ remanente_real|clp }}</div>
+        <div class="text-sm text-gray-400 mt-1">Planificado: ${{ remanente_planificado|clp }}</div>
+    </div>
+</div>
+
+<!-- Progress Bar -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+    <h2 class="text-lg font-bold text-gray-800 mb-3">Presupuesto Consumido</h2>
+    <div class="w-full bg-gray-200 rounded-full h-5 relative overflow-hidden">
+        <div class="bg-gradient-to-r from-indigo-500 to-purple-600 h-5 rounded-full transition-all duration-1000" style="width: {{ progreso_presupuesto }}%"></div>
+    </div>
+    <p class="text-sm text-gray-500 mt-3 font-medium">{{ progreso_presupuesto }}% del presupuesto total mensual consumido.</p>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+    <!-- Chart Container -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <h2 class="text-lg font-bold text-gray-800 mb-4">Plan vs Realidad por Categoría</h2>
+        <canvas id="categoryChart"></canvas>
+    </div>
+
+    <!-- Categories Status List -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <h2 class="text-lg font-bold text-gray-800 mb-4">Estado Semáforo</h2>
+        <ul class="space-y-4">
+            {% for cat in cat_status %}
+            <li class="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors">
+                <div>
+                    <span class="font-semibold text-gray-700">{{ cat.name }}</span>
+                    <div class="text-xs text-gray-500 mt-1">Plan: ${{ cat.planned|clp }} | Gasto: ${{ cat.spent|clp }}</div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="text-sm font-bold text-gray-600">{{ cat.percentage }}%</span>
+                    <span class="h-4 w-4 rounded-full {{ cat.color }} shadow-sm"></span>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+
+<!-- Loans Table -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+    <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-6">
+        <h2 class="text-lg font-bold text-gray-800 mb-2 md:mb-0">Próximos Vencimientos - Debt Master</h2>
+        <button id="payAllBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-6 rounded-lg shadow transition-colors w-full md:w-auto">
+            Descontar Cuotas del Mes
+        </button>
+    </div>
+    <div class="overflow-x-auto rounded-lg border border-gray-200">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Entidad</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Tipo</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Cuota Mensual</th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Cuotas Restantes</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for loan in active_loans %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">{{ loan.entity }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ loan.loan_type }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${{ loan.monthly_quota|clp }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ loan.remaining_quotas }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="px-6 py-8 whitespace-nowrap text-sm text-center text-gray-500 font-medium bg-gray-50">No hay créditos activos</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- IA Advisor Simulator -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8 border-t-4 border-t-green-500">
+    <h2 class="text-lg font-bold text-gray-800 mb-2">IA Advisor - Simulador de Prepago</h2>
+    <p class="text-sm text-gray-500 mb-6">Ingresa un monto extra (ej. ahorro libre) para simular su impacto en tus pasivos activos.</p>
+    <div class="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
+        <input type="number" id="simAmount" placeholder="Ej: 125205" class="border border-gray-300 rounded-lg px-4 py-3 w-full max-w-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+        <button id="simBtn" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg shadow transition-colors w-full sm:w-auto">Simular</button>
+    </div>
+    <div id="simResult" class="mt-6 p-5 bg-gradient-to-r from-gray-50 to-white rounded-lg border border-gray-200 hidden shadow-inner animate-pulse duration-500"></div>
+<!-- Modal Confirmacion Pago Cuotas -->
+<div id="payAllModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-2xl p-6 md:p-8 max-w-md w-full mx-4">
+        <h3 class="text-xl font-bold text-gray-900 mb-4" id="payAllModalTitle">Confirmar Descuento</h3>
+        <p class="text-sm text-gray-600 mb-6" id="payAllModalText">¿Estás seguro de descontar todas las cuotas del mes actual? Esto reducirá las cuotas restantes de cada crédito en 1 y creará los egresos correspondientes.</p>
+        
+        <div class="flex flex-col md:flex-row space-y-3 md:space-y-0 md:space-x-3" id="payAllModalActions">
+            <button type="button" onclick="closePayAllModal()" class="w-full inline-flex justify-center rounded-lg border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none">Cancelar</button>
+            <button type="button" id="payAllConfirmBtn" class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none">Sí, descontar</button>
+        </div>
+        <div class="hidden flex flex-col md:flex-row space-y-3 md:space-y-0 md:space-x-3" id="payAllModalOkAction">
+            <button type="button" onclick="location.reload()" class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none">Continuar</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    // Configurar Chart.js
+    const ctx = document.getElementById('categoryChart').getContext('2d');
+    const data = {
+        labels: [{% for cat in cat_status %}"{{ cat.name }}",{% endfor %}],
+        datasets: [
+            {
+                label: 'Planificado ($)',
+                data: [{% for cat in cat_status %}{{ cat.planned|stringformat:"f" }},{% endfor %}],
+                backgroundColor: 'rgba(99, 102, 241, 0.2)', // Indigo 500
+                borderColor: 'rgba(99, 102, 241, 1)',
+                borderWidth: 2,
+                borderRadius: 4
+            },
+            {
+                label: 'Gasto Real ($)',
+                data: [{% for cat in cat_status %}{{ cat.spent|stringformat:"f" }},{% endfor %}],
+                backgroundColor: 'rgba(239, 68, 68, 0.2)', // Red 500
+                borderColor: 'rgba(239, 68, 68, 1)',
+                borderWidth: 2,
+                borderRadius: 4
+            }
+        ]
+    };
+    
+    new Chart(ctx, {
+        type: 'bar',
+        data: data,
+        options: {
+            responsive: true,
+            interaction: { mode: 'index', intersect: false },
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+
+    // Lógica Pagar Todas las Cuotas
+    const payAllModal = document.getElementById('payAllModal');
+    const payAllConfirmBtn = document.getElementById('payAllConfirmBtn');
+    const payAllModalTitle = document.getElementById('payAllModalTitle');
+    const payAllModalText = document.getElementById('payAllModalText');
+    const payAllModalActions = document.getElementById('payAllModalActions');
+    const payAllModalOkAction = document.getElementById('payAllModalOkAction');
+
+    window.closePayAllModal = function() {
+        payAllModal.classList.add('hidden');
+    };
+
+    document.getElementById('payAllBtn').addEventListener('click', function() {
+        payAllModalTitle.innerText = "Confirmar Descuento";
+        payAllModalTitle.className = "text-xl font-bold text-gray-900 mb-4";
+        payAllModalText.innerText = "¿Estás seguro de descontar todas las cuotas del mes actual? Esto reducirá las cuotas restantes de cada crédito en 1 y creará los egresos correspondientes.";
+        payAllModalActions.classList.remove('hidden');
+        payAllModalOkAction.classList.add('hidden');
+        payAllConfirmBtn.innerText = "Sí, descontar";
+        payAllConfirmBtn.disabled = false;
+        payAllModal.classList.remove('hidden');
+    });
+
+    payAllConfirmBtn.addEventListener('click', function() {
+        payAllConfirmBtn.innerText = "Procesando...";
+        payAllConfirmBtn.disabled = true;
+        
+        fetch('/api/loans/pay-all/', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(r => r.json())
+        .then(data => {
+            payAllModalActions.classList.add('hidden');
+            payAllModalOkAction.classList.remove('hidden');
+            payAllModalText.innerText = data.message;
+            if(data.status === 'success') {
+                payAllModalTitle.innerText = "¡Éxito!";
+                payAllModalTitle.className = "text-xl font-bold text-green-600 mb-4";
+            } else {
+                payAllModalTitle.innerText = "Atención";
+                payAllModalTitle.className = "text-xl font-bold text-red-600 mb-4";
+            }
+        })
+        .catch(e => {
+            payAllModalActions.classList.add('hidden');
+            payAllModalOkAction.classList.remove('hidden');
+            payAllModalTitle.innerText = "Error";
+            payAllModalTitle.className = "text-xl font-bold text-red-600 mb-4";
+            payAllModalText.innerText = "Ocurrió un error inesperado al procesar la solicitud.";
+        });
+    });
+
+    // Lógica Simulación de Prepago
+    document.getElementById('simBtn').addEventListener('click', function() {
+        const amount = document.getElementById('simAmount').value;
+        if(!amount) return;
+
+        const btn = this;
+        btn.innerHTML = 'Calculando...';
+        
+        fetch('/api/simulate-prepayment/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount: amount })
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.innerHTML = 'Simular';
+            const resDiv = document.getElementById('simResult');
+            resDiv.classList.remove('hidden');
+            
+            if(data.error) {
+                 resDiv.innerHTML = `<p class="text-red-500 font-medium">${data.error}</p>`;
+                 return;
+            }
+            
+            let html = `<h3 class="font-extrabold text-gray-800 mb-3 text-lg">✨ Impacto de Prepago:</h3>`;
+            if(data.reporte && data.reporte.length > 0) {
+                html += `<ul class="space-y-2">`;
+                data.reporte.forEach(item => {
+                    html += `<li class="flex items-start">
+                        <span class="bg-green-100 text-green-800 p-1 rounded mr-3 mt-1 shadow-sm">💡</span>
+                        <span class="text-gray-700">${item.message}</span>
+                    </li>`;
+                });
+                html += `</ul>`;
+            } else {
+                html += `<p class="text-gray-600">El monto no es suficiente para cubrir ninguna cuota completa de los créditos actuales.</p>`;
+            }
+            resDiv.innerHTML = html;
+        })
+        .catch(e => {
+            btn.innerHTML = 'Simular';
+            alert("Error: " + e);
+        });
+    });
+});
+</script>
+{% endblock %}

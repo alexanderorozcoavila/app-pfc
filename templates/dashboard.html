@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="px-4 py-4 sm:px-0">
+    <h1 class="text-2xl font-semibold text-gray-800 mb-6">Dashboard Financiero</h1>
+
+    {% if alerts %}
+    <div class="mb-6 space-y-2">
+        {% for alert in alerts %}
+        <div class="bg-red-50 border-l-4 border-red-500 text-red-700 px-4 py-3 rounded shadow-sm" role="alert">
+            <div class="flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-10.707a1 1 0 00-1.414-1.414L9 9.586 7.707 8.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+                <span class="block sm:inline font-medium">{{ alert }}</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <!-- Budget vs Expenses Chart -->
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <h2 class="text-lg font-medium text-gray-700 mb-4">Presupuesto vs Gastos Reales</h2>
+            <div class="relative h-64">
+                <canvas id="budgetChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Debt Curve Chart -->
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <h2 class="text-lg font-medium text-gray-700 mb-4">Proyección de Deuda hasta 2055</h2>
+            <div class="relative h-64">
+                <canvas id="debtChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="bg-white shadow-sm border border-gray-100 overflow-hidden rounded-xl mb-8">
+        <div class="px-4 py-5 sm:px-6 bg-gray-50 border-b border-gray-100">
+            <h3 class="text-lg leading-6 font-medium text-gray-900">Mis Créditos Activos</h3>
+        </div>
+        <div class="bg-white">
+            <ul role="list" class="divide-y divide-gray-100">
+                {% for loan in loans %}
+                <li class="pl-4 pr-5 py-4 flex items-center justify-between text-sm hover:bg-gray-50 transition">
+                    <div class="w-0 flex-1 flex items-center">
+                        <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold mr-3">
+                            $
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="font-medium text-gray-900">{{ loan.name }}</span>
+                            <span class="text-xs text-gray-500">Monto inicial: ${{ loan.principal|floatformat:0 }} | Tasa: {{ loan.annual_interest_rate }}%</span>
+                        </div>
+                    </div>
+                    <div class="ml-4 flex flex-col items-end">
+                        <span class="font-semibold text-gray-900">Deuda actual: ${{ loan.current_balance|floatformat:0 }}</span>
+                        <span class="text-xs text-gray-500">Fin: {{ loan.end_date|date:"M Y" }} ({{ loan.remaining_installments }} cuotas)</span>
+                    </div>
+                </li>
+                {% empty %}
+                <li class="pl-4 pr-5 py-6 text-sm text-center text-gray-500">No hay créditos registrados.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Configuración y personalización de Chart.js
+    Chart.defaults.font.family = "'Inter', sans-serif";
+    Chart.defaults.color = '#6b7280';
+
+    // Budget Chart
+    const budgetCtx = document.getElementById('budgetChart').getContext('2d');
+    const budgetChart = new Chart(budgetCtx, {
+        type: 'bar',
+        data: {
+            labels: {{ budget_labels|safe }},
+            datasets: [
+                {
+                    label: 'Presupuesto Planificado',
+                    data: {{ budget_data|safe }},
+                    backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                    borderRadius: 4,
+                },
+                {
+                    label: 'Gasto Real',
+                    data: {{ expense_data|safe }},
+                    backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                    borderRadius: 4,
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' }
+            },
+            scales: {
+                y: { beginAtZero: true, grid: { borderDash: [2, 4], color: '#f3f4f6' } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+
+    // Debt Chart
+    const debtCtx = document.getElementById('debtChart').getContext('2d');
+    const debtChart = new Chart(debtCtx, {
+        type: 'line',
+        data: {
+            labels: {{ debt_labels|safe }},
+            datasets: [{
+                label: 'Deuda Total',
+                data: {{ debt_data|safe }},
+                fill: true,
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                borderColor: 'rgb(16, 185, 129)',
+                borderWidth: 2,
+                tension: 0.4,
+                pointRadius: 2,
+                pointBackgroundColor: 'rgb(16, 185, 129)'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' },
+                tooltip: { mode: 'index', intersect: false }
+            },
+            scales: {
+                y: { beginAtZero: true, grid: { borderDash: [2, 4], color: '#f3f4f6' } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+</script>
+{% endblock %}

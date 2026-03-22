@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PFC | Copilot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    {% block extra_head %}{% endblock %}
+</head>
+
+<body class="bg-gray-100 font-sans leading-normal tracking-normal text-gray-900 flex h-screen overflow-hidden">
+
+    <!-- Sidebar -->
+    <aside class="w-64 bg-indigo-900 text-white flex flex-col pt-6 hidden md:flex">
+        <div class="px-6 mb-8 text-center border-b border-indigo-800 pb-6">
+            <h1 class="text-3xl font-extrabold text-white">PFC</h1>
+            <p class="text-indigo-300 text-sm mt-1">Personal Finance</p>
+        </div>
+
+        <nav class="flex-1 px-4 space-y-2">
+            <a href="{% url 'dashboard' %}"
+                class="flex items-center px-4 py-3 bg-indigo-800 hover:bg-indigo-700 rounded-lg transition-colors shadow-sm">
+                <span class="font-medium">Dashboard</span>
+            </a>
+            <hr class="border-indigo-800 my-4">
+            <!-- Pistas conceptuales para los próximos CRUDS -->
+            <a href="{% url 'income_list' %}"
+                class="flex items-center px-4 py-3 text-indigo-100 hover:bg-indigo-800 rounded-lg transition-colors"><span
+                    class="font-medium">Fuentes de Ingreso</span></a>
+            <a href="{% url 'transaction_list' %}"
+                class="flex items-center px-4 py-3 text-indigo-100 hover:bg-indigo-800 rounded-lg transition-colors"><span
+                    class="font-medium">Movimientos Reales</span></a>
+            <a href="{% url 'budget_list' %}"
+                class="flex items-center px-4 py-3 text-indigo-100 hover:bg-indigo-800 rounded-lg transition-colors"><span
+                    class="font-medium">Presupuestos</span></a>
+            <!-- <a href="{% url 'budgetdetail_list' %}" class="flex items-center px-4 py-3 text-indigo-100 hover:bg-indigo-800 rounded-lg transition-colors"><span class="font-medium">Detalles Pto.</span></a> -->
+            <a href="{% url 'category_list' %}"
+                class="flex items-center px-4 py-3 text-indigo-100 hover:bg-indigo-800 rounded-lg transition-colors"><span
+                    class="font-medium">Categorías</span></a>
+            <a href="{% url 'loan_list' %}"
+                class="flex items-center px-4 py-3 text-indigo-100 hover:bg-indigo-800 rounded-lg transition-colors"><span
+                    class="font-medium">Créditos Bancarios</span></a>
+            <a href="{% url 'entity_list' %}"
+                class="flex items-center px-4 py-3 text-indigo-100 hover:bg-indigo-800 rounded-lg transition-colors"><span
+                    class="font-medium">Entidades / Bancos</span></a>
+            <a href="{% url 'loantype_list' %}"
+                class="flex items-center px-4 py-3 text-indigo-100 hover:bg-indigo-800 rounded-lg transition-colors"><span
+                    class="font-medium">Tipos de Crédito</span></a>
+        </nav>
+
+        <div class="p-4 border-t border-indigo-800">
+            <form method="post" action="{% url 'logout' %}">
+                {% csrf_token %}
+                <button type="submit"
+                    class="flex items-center justify-center w-full px-4 py-2 text-sm font-medium text-indigo-200 hover:text-white hover:bg-indigo-800 rounded transition-colors">
+                    Cerrar Sesión
+                </button>
+            </form>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 overflow-y-auto bg-gray-50 flex flex-col relative w-full h-full pb-10">
+        <!-- Mobile Header Navbar -->
+        <header
+            class="bg-indigo-900 md:hidden flex items-center justify-between p-4 shadow-md text-white sticky top-0 z-10">
+            <h1 class="text-xl font-bold">PFC</h1>
+            <form method="post" action="{% url 'logout' %}" class="inline">
+                {% csrf_token %}
+                <button type="submit"
+                    class="text-sm border border-indigo-500 rounded px-3 py-1 hover:bg-indigo-800 font-medium">Salir</button>
+            </form>
+        </header>
+
+        <div class="p-4 md:p-8 w-full max-w-7xl mx-auto">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    {% block scripts %}{% endblock %}
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const moneyInputs = document.querySelectorAll('.money-input');
+            moneyInputs.forEach(input => {
+                input.value = formatChileanMoney(input.value);
+
+                input.addEventListener('input', function (e) {
+                    let cursorPosition = e.target.selectionStart;
+                    let originalLength = e.target.value.length;
+
+                    e.target.value = formatChileanMoney(e.target.value);
+
+                    let newLength = e.target.value.length;
+                    cursorPosition = cursorPosition + (newLength - originalLength);
+                    try { window.requestAnimationFrame(() => e.target.setSelectionRange(cursorPosition, cursorPosition)); } catch (err) { }
+                });
+            });
+
+            function formatChileanMoney(value) {
+                if (!value) return "";
+                value = value.replace(/[^0-9,]/g, '');
+                let parts = value.split(',');
+                if (parts.length > 2) parts = [parts[0], parts.slice(1).join('')];
+                let intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                return parts.length > 1 ? intPart + ',' + parts[1].substring(0, 2) : intPart;
+            }
+        });
+    </script>
+</body>
+
+</html>

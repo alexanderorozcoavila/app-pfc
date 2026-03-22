@@ -1,0 +1,150 @@
+{% extends 'core/base.html' %}
+{% block content %}
+<div class="bg-white rounded-xl shadow-sm p-6 max-w-5xl mx-auto mt-6 border border-gray-100">
+    <div class="flex flex-col md:flex-row justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold text-gray-800">{{ title }}</h2>
+        <a href="{% url create_url %}" class="mt-4 md:mt-0 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg transition-colors shadow">+ Añadir Nuevo</a>
+    </div>
+    
+    <div class="overflow-x-auto rounded-lg border border-gray-200">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Identificador del Registro</th>
+                    <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Acciones</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for obj in objects %}
+                <tr class="hover:bg-gray-50 transition-colors">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-800">{{ obj }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                        <button type="button" onclick="openDuplicateModal('{{ obj.pk }}', '{{ obj.title|escapejs }}')" class="text-indigo-600 hover:text-indigo-900 bg-indigo-50 px-3 py-1 rounded-full cursor-pointer">Duplicar</button>
+                        {% if extra_action_url_name %}
+                        <a href="{% url extra_action_url_name obj.pk %}" class="text-green-600 hover:text-green-900 bg-green-50 px-3 py-1 rounded-full cursor-pointer">{{ extra_action_label }}</a>
+                        {% endif %}
+                        <a href="{% url update_url_name obj.pk %}" class="text-blue-600 hover:text-blue-900 bg-blue-50 px-3 py-1 rounded-full cursor-pointer">Editar</a>
+                        <a href="{% url delete_url_name obj.pk %}" class="text-red-600 hover:text-red-900 bg-red-50 px-3 py-1 rounded-full cursor-pointer">Eliminar</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="2" class="px-6 py-8 text-center text-gray-500 font-medium bg-gray-50 rounded-b-lg">No hay registros cargados todavía.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Duplicate Modal -->
+<div id="duplicateModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+    <div class="bg-white rounded-xl shadow-2xl p-6 md:p-8 max-w-sm w-full mx-4">
+        <h3 class="text-lg leading-6 font-bold text-gray-900 mb-4">Duplicar Presupuesto</h3>
+        <p class="text-sm text-gray-500 mb-4">Ingresa los datos para el nuevo presupuesto clonado desde <strong id="dupOriginName"></strong>.</p>
+        
+        <input type="hidden" id="dupOriginId">
+        
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Título del Presupuesto</label>
+            <input type="text" id="dupTitle" class="w-full border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="Ej: Abril 2026">
+        </div>
+        
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Mes (1-12)</label>
+            <select id="dupMonth" class="w-full border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                <option value="1">Enero</option><option value="2">Febrero</option>
+                <option value="3">Marzo</option><option value="4">Abril</option>
+                <option value="5">Mayo</option><option value="6">Junio</option>
+                <option value="7">Julio</option><option value="8">Agosto</option>
+                <option value="9">Septiembre</option><option value="10">Octubre</option>
+                <option value="11">Noviembre</option><option value="12">Diciembre</option>
+            </select>
+        </div>
+        
+        <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Año</label>
+            <select id="dupYear" class="w-full border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                <!-- JS will populate -->
+            </select>
+        </div>
+        
+        <div id="dupError" class="hidden mb-4 p-3 bg-red-100 text-red-700 text-sm rounded-lg"></div>
+
+        <div class="flex flex-col md:flex-row space-y-3 md:space-y-0 md:space-x-3">
+            <button type="button" onclick="closeDuplicateModal()" class="w-full inline-flex justify-center rounded-lg border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none">Cancelar</button>
+            <button type="button" onclick="submitDuplicate()" class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none">Guardar</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const dupModal = document.getElementById('duplicateModal');
+    const dupOriginId = document.getElementById('dupOriginId');
+    const dupOriginName = document.getElementById('dupOriginName');
+    const dupTitle = document.getElementById('dupTitle');
+    const dupMonth = document.getElementById('dupMonth');
+    const dupYear = document.getElementById('dupYear');
+    const dupError = document.getElementById('dupError');
+
+    // Populate Year Dropdown dynamically
+    const currentYear = new Date().getFullYear();
+    for(let i=0; i<10; i++){
+        let y = currentYear + i;
+        let opt = document.createElement('option');
+        opt.value = y;
+        opt.innerText = y;
+        dupYear.appendChild(opt);
+    }
+
+    function openDuplicateModal(id, name) {
+        dupOriginId.value = id;
+        dupOriginName.innerText = name;
+        dupTitle.value = name + ' (Copia)';
+        dupError.classList.add('hidden');
+        dupModal.classList.remove('hidden');
+    }
+
+    function closeDuplicateModal() {
+        dupModal.classList.add('hidden');
+    }
+
+    async function submitDuplicate() {
+        const payload = {
+            title: dupTitle.value,
+            month: dupMonth.value,
+            year: dupYear.value
+        };
+
+        if(!payload.title) {
+            dupError.innerText = "El título es requerido.";
+            dupError.classList.remove('hidden');
+            return;
+        }
+
+        try {
+            const resp = await fetch(`/budget/${dupOriginId.value}/duplicate/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify(payload)
+            });
+            const data = await resp.json();
+            
+            if(resp.ok) {
+                window.location.reload();
+            } else {
+                dupError.innerText = data.message || "Error al duplicar.";
+                dupError.classList.remove('hidden');
+            }
+        } catch (e) {
+            dupError.innerText = "Error de red interno.";
+            dupError.classList.remove('hidden');
+        }
+    }
+</script>
+{% endblock %}

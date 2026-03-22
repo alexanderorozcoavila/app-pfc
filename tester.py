@@ -1,0 +1,1 @@
+import os; import django; os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'pfc_project.settings'); django.setup(); from django.conf import settings; settings.USE_L10N = False; settings.THOUSAND_SEPARATOR = '.'; from django.utils.formats import number_format; from decimal import Decimal; print(repr(number_format(Decimal('10000.00'), decimal_pos=0, force_grouping=True)))

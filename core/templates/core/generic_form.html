@@ -1,0 +1,35 @@
+{% extends 'core/base.html' %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto bg-white p-8 rounded-xl shadow-sm border border-gray-100 mt-10">
+    <h2 class="text-2xl font-bold text-gray-800 mb-6">{{ title }}</h2>
+    <form method="post" class="space-y-4">
+        {% csrf_token %}
+        <div class="form-group grid gap-4">
+            {{ form.as_p }}
+        </div>
+        
+        <div class="pt-6 flex justify-end space-x-3">
+            <a href="{% url 'dashboard' %}" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded-lg transition-colors border border-gray-300">Cancelar</a>
+            <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg transition-colors shadow">
+                Guardar
+            </button>
+        </div>
+    </form>
+</div>
+{% block form_scripts %}{% endblock %}
+<style>
+/* Estilos básicos para adaptar form.as_p sin django-crispy-forms */
+form p { margin-bottom: 1rem; width: 100%; display: flex; flex-direction: column; }
+form label { font-size: 0.875rem; font-weight: 600; color: #374151; margin-bottom: 0.4rem; }
+form input[type="text"], form input[type="number"], form input[type="date"], form select {
+    width: 100%; padding: 0.6rem 0.75rem; border: 1px solid #D1D5DB; border-radius: 0.5rem; 
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); outline: none; transition: all 0.2s;
+}
+form input[type="text"]:focus, form input[type="number"]:focus, form input[type="date"]:focus, form select:focus {
+    border-color: #6366f1; box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+form input[type="checkbox"] { margin-top: 0.3rem; width: 1.25rem; height: 1.25rem; accent-color: #6366f1; }
+.helptext { font-size: 0.8rem; color: #6b7280; margin-top: 0.25rem; }
+</style>
+{% endblock %}
