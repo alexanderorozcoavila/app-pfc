@@ -108,16 +108,33 @@
     </div>
     <div id="simResult" class="mt-6 p-5 bg-gradient-to-r from-gray-50 to-white rounded-lg border border-gray-200 hidden shadow-inner animate-pulse duration-500"></div>
 <!-- Modal Confirmacion Pago Cuotas -->
-<div id="payAllModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-    <div class="bg-white rounded-xl shadow-2xl p-6 md:p-8 max-w-md w-full mx-4">
-        <h3 class="text-xl font-bold text-gray-900 mb-4" id="payAllModalTitle">Confirmar Descuento</h3>
-        <p class="text-sm text-gray-600 mb-6" id="payAllModalText">¿Estás seguro de descontar todas las cuotas del mes actual? Esto reducirá las cuotas restantes de cada crédito en 1 y creará los egresos correspondientes.</p>
+<div id="payAllModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 z-[100]">
+    <div class="bg-white rounded-xl shadow-2xl p-6 md:p-8 max-w-lg w-full max-h-[90vh] flex flex-col relative">
+        <h3 class="text-xl font-bold text-gray-900 mb-2" id="payAllModalTitle">Descontar Cuotas del Mes</h3>
+        <p class="text-sm text-gray-600 mb-6 flex-shrink-0" id="payAllModalText">Selecciona los créditos que deseas descontar. Las cuotas ya descontadas en este mes aparecerán deshabilitadas.</p>
         
-        <div class="flex flex-col md:flex-row space-y-3 md:space-y-0 md:space-x-3" id="payAllModalActions">
-            <button type="button" onclick="closePayAllModal()" class="w-full inline-flex justify-center rounded-lg border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none">Cancelar</button>
-            <button type="button" id="payAllConfirmBtn" class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none">Sí, descontar</button>
+        <div id="payAllCheckboxes" class="mb-6 space-y-3 overflow-y-auto flex-1 pr-2">
+            {% for loan in active_loans %}
+            <label class="flex items-center p-3 border rounded-lg cursor-pointer transition-colors {% if loan.is_paid %}bg-gray-100 border-gray-200 opacity-60{% else %}bg-white border-gray-300 hover:border-indigo-400{% endif %}">
+                <input type="checkbox" name="loan_pay_check" value="{{ loan.id }}" class="h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded" {% if loan.is_paid %}disabled{% endif %}>
+                <div class="ml-3 flex flex-col">
+                    <span class="text-sm font-medium text-gray-900">{{ loan.entity }} - {{ loan.loan_type }}</span>
+                    <span class="text-xs text-gray-500">${{ loan.monthly_quota|clp }} (Restantes: {{ loan.remaining_quotas }})</span>
+                </div>
+                {% if loan.is_paid %}
+                <span class="ml-auto text-xs font-bold text-green-600 bg-green-100 px-2 py-1 rounded whitespace-nowrap">Ya pagado</span>
+                {% endif %}
+            </label>
+            {% empty %}
+            <p class="text-sm text-gray-500 text-center py-4">No hay créditos activos.</p>
+            {% endfor %}
         </div>
-        <div class="hidden flex flex-col md:flex-row space-y-3 md:space-y-0 md:space-x-3" id="payAllModalOkAction">
+        
+        <div class="flex flex-col md:flex-row space-y-3 md:space-y-0 md:space-x-3 mt-auto" id="payAllModalActions">
+            <button type="button" onclick="closePayAllModal()" class="w-full inline-flex justify-center rounded-lg border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none">Cancelar</button>
+            <button type="button" id="payAllConfirmBtn" class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none">Descontar Seleccionados</button>
+        </div>
+        <div class="hidden flex flex-col md:flex-row space-y-3 md:space-y-0 md:space-x-3 mt-4" id="payAllModalOkAction">
             <button type="button" onclick="location.reload()" class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none">Continuar</button>
         </div>
     </div>
@@ -169,22 +186,33 @@ document.addEventListener("DOMContentLoaded", function() {
     const payAllModalActions = document.getElementById('payAllModalActions');
     const payAllModalOkAction = document.getElementById('payAllModalOkAction');
 
+    const payAllCheckboxes = document.getElementById('payAllCheckboxes');
+
     window.closePayAllModal = function() {
         payAllModal.classList.add('hidden');
     };
 
     document.getElementById('payAllBtn').addEventListener('click', function() {
-        payAllModalTitle.innerText = "Confirmar Descuento";
-        payAllModalTitle.className = "text-xl font-bold text-gray-900 mb-4";
-        payAllModalText.innerText = "¿Estás seguro de descontar todas las cuotas del mes actual? Esto reducirá las cuotas restantes de cada crédito en 1 y creará los egresos correspondientes.";
+        payAllModalTitle.innerText = "Descontar Cuotas del Mes";
+        payAllModalTitle.className = "text-xl font-bold text-gray-900 mb-2";
+        payAllModalText.innerText = "Selecciona los créditos que deseas descontar. Las cuotas ya descontadas en este mes aparecerán deshabilitadas.";
         payAllModalActions.classList.remove('hidden');
         payAllModalOkAction.classList.add('hidden');
-        payAllConfirmBtn.innerText = "Sí, descontar";
+        payAllCheckboxes.classList.remove('hidden');
+        payAllConfirmBtn.innerText = "Descontar Seleccionados";
         payAllConfirmBtn.disabled = false;
         payAllModal.classList.remove('hidden');
     });
 
     payAllConfirmBtn.addEventListener('click', function() {
+        const checkboxes = document.querySelectorAll('input[name="loan_pay_check"]:checked');
+        const selectedIds = Array.from(checkboxes).map(cb => cb.value);
+        
+        if (selectedIds.length === 0) {
+            alert('Por favor selecciona al menos una cuota.');
+            return;
+        }
+
         payAllConfirmBtn.innerText = "Procesando...";
         payAllConfirmBtn.disabled = true;
         
@@ -193,12 +221,14 @@ document.addEventListener("DOMContentLoaded", function() {
             headers: {
                 'X-CSRFToken': '{{ csrf_token }}',
                 'Content-Type': 'application/json'
-            }
+            },
+            body: JSON.stringify({loan_ids: selectedIds})
         })
         .then(r => r.json())
         .then(data => {
             payAllModalActions.classList.add('hidden');
             payAllModalOkAction.classList.remove('hidden');
+            payAllCheckboxes.classList.add('hidden');
             payAllModalText.innerText = data.message;
             if(data.status === 'success') {
                 payAllModalTitle.innerText = "¡Éxito!";

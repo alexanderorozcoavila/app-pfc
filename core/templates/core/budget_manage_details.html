@@ -87,17 +87,36 @@
 </table>
 
 <!-- Modal Créditos Bancarios -->
-<div id="loanModal" class="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-center justify-center hidden">
-    <div class="bg-white rounded-xl shadow-2xl p-6 md:p-8 max-w-sm w-full mx-4 transform transition-all relative">
-        <div class="text-center">
-            <div class="mx-auto flex flex-shrink-0 items-center justify-center h-16 w-16 rounded-full bg-indigo-100 mb-4">
-                <svg class="h-8 w-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+<div id="loanModal" class="fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-center justify-center hidden p-4">
+    <div class="bg-white rounded-xl shadow-2xl p-6 md:p-8 max-w-lg w-full max-h-[90vh] flex flex-col relative">
+        <div class="text-center mb-4">
+            <div class="mx-auto flex flex-shrink-0 items-center justify-center h-12 w-12 rounded-full bg-indigo-100 mb-4">
+                <svg class="h-6 w-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
             </div>
             <h3 class="text-xl leading-6 font-extrabold text-gray-900 mb-2">Simulación de Créditos</h3>
-            <p class="text-sm text-gray-500 mb-4">Tienes cuotas activas pendientes. La sumatoria mensual actual es de:</p>
-            <p class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 mb-6">${{ total_loans_quota|clp }}</p>
+            <p class="text-sm text-gray-500">Selecciona qué créditos deseas importar a este presupuesto mensual.</p>
         </div>
-        <div class="flex flex-col space-y-3">
+        
+        <div id="loanModalCheckboxes" class="mb-6 space-y-3 overflow-y-auto flex-1 pr-2">
+            {% for loan in loans_data %}
+            <label class="flex items-center p-3 border rounded-lg cursor-pointer transition-colors bg-white border-gray-300 hover:border-indigo-400">
+                <input type="checkbox" name="budget_loan_check" value="{{ loan.quota|stringformat:"f" }}" class="h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded" checked>
+                <div class="ml-3 flex flex-col">
+                    <span class="text-sm font-medium text-gray-900">{{ loan.entity }} - {{ loan.type }}</span>
+                    <span class="text-xs text-gray-500">${{ loan.quota|clp }}</span>
+                </div>
+            </label>
+            {% empty %}
+            <p class="text-sm text-gray-500 text-center py-4">No hay créditos activos.</p>
+            {% endfor %}
+        </div>
+        
+        <div class="text-center mb-6">
+            <p class="text-sm text-gray-500 mb-1">Total a importar:</p>
+            <p class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600" id="loanModalTotalSum">$0</p>
+        </div>
+        
+        <div class="flex flex-col space-y-3 mt-auto">
             <button type="button" id="loanModalAdd" class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-3 bg-indigo-600 text-base font-bold text-white hover:bg-indigo-700 focus:outline-none transition-colors">Importar al Presupuesto</button>
             <button type="button" id="loanModalCancel" class="w-full inline-flex justify-center rounded-lg border border-gray-300 shadow-sm px-4 py-3 bg-white text-base font-bold text-gray-700 hover:bg-gray-50 focus:outline-none transition-colors">Solo crear categoría</button>
         </div>
@@ -115,11 +134,37 @@ document.addEventListener("DOMContentLoaded", function() {
     const totalFormsInput = document.getElementById('id_details-TOTAL_FORMS');
     const dynamicTotalEl = document.getElementById('dynamicTotal');
 
-    const totalLoansQuotaStr = "{{ total_loans_quota|default:'0' }}";
     const loanModal = document.getElementById('loanModal');
     const btnCancelLoan = document.getElementById('loanModalCancel');
     const btnAddLoan = document.getElementById('loanModalAdd');
+    const loanModalTotalSum = document.getElementById('loanModalTotalSum');
+    const loanCheckboxes = document.querySelectorAll('input[name="budget_loan_check"]');
     let activeLoanRow = null;
+
+    function formatChilean(num) {
+        let str = num.toFixed(2);
+        if(str.endsWith('.00')) str = str.slice(0, -3);
+        else str = str.replace('.', ',');
+        let parts = str.split(',');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+        return parts.length > 1 ? parts[0] + ',' + parts[1] : parts[0];
+    }
+
+    function updateLoanModalSum() {
+        if(!loanModalTotalSum) return 0;
+        let sum = 0;
+        loanCheckboxes.forEach(cb => {
+            if(cb.checked && !cb.disabled) {
+                sum += parseFloat(cb.value);
+            }
+        });
+        loanModalTotalSum.innerText = "$" + formatChilean(sum);
+        return sum;
+    }
+
+    if (loanCheckboxes.length > 0) {
+        loanCheckboxes.forEach(cb => cb.addEventListener('change', updateLoanModalSum));
+    }
 
     if (btnCancelLoan && btnAddLoan) {
         btnCancelLoan.addEventListener('click', () => {
@@ -131,11 +176,13 @@ document.addEventListener("DOMContentLoaded", function() {
             if(activeLoanRow) {
                 const qtyInput = activeLoanRow.querySelector('input[name$="-quantity"]');
                 const amtInput = activeLoanRow.querySelector('input[name$="-amount"]');
+                let sum = updateLoanModalSum() || 0;
+                
                 if(qtyInput && window.formatChileanMoney) {
                     qtyInput.value = window.formatChileanMoney("1");
                 }
                 if(amtInput && window.formatChileanMoney) {
-                    amtInput.value = window.formatChileanMoney(totalLoansQuotaStr.replace('.', ','));
+                    amtInput.value = window.formatChileanMoney(sum.toString().replace('.', ','));
                 }
                 calculateTotals();
             }
@@ -148,15 +195,6 @@ document.addEventListener("DOMContentLoaded", function() {
         if(!str) return 0;
         let c = str.replace(/\./g, '').replace(',', '.');
         return parseFloat(c) || 0;
-    }
-    
-    function formatChilean(num) {
-        let str = num.toFixed(2);
-        if(str.endsWith('.00')) str = str.slice(0, -3);
-        else str = str.replace('.', ',');
-        let parts = str.split(',');
-        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-        return parts.length > 1 ? parts[0] + ',' + parts[1] : parts[0];
     }
 
     function calculateTotals() {
@@ -226,7 +264,10 @@ document.addEventListener("DOMContentLoaded", function() {
                 const selectedText = e.target.options[e.target.selectedIndex].text;
                 if(selectedText.trim().toLowerCase() === 'créditos bancarios') {
                     activeLoanRow = row;
-                    if(loanModal) loanModal.classList.remove('hidden');
+                    if(loanModal) {
+                        updateLoanModalSum(); // Initialize dynamically
+                        loanModal.classList.remove('hidden');
+                    }
                 }
             });
         }

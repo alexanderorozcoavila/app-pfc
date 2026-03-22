@@ -79,21 +79,31 @@ def register_loan_payment(request, loan_id):
 @login_required
 @require_POST
 def pay_all_loans(request):
-    active_loans = Loan.objects.filter(remaining_quotas__gt=0)
+    data = json.loads(request.body)
+    loan_ids = data.get('loan_ids', [])
+    if not isinstance(loan_ids, list) or not loan_ids:
+        return JsonResponse({'status': 'error', 'message': 'No se seleccionaron cuotas para descontar.'}, status=400)
+    
+    active_loans = Loan.objects.filter(id__in=loan_ids, remaining_quotas__gt=0)
+    if not active_loans.exists():
+        return JsonResponse({'status': 'error', 'message': 'No se encontraron créditos válidos.'}, status=400)
+        
     from .models import BudgetCategory, Transaction
     from django.utils import timezone
     cat, _ = BudgetCategory.objects.get_or_create(name="Créditos Bancarios", defaults={'is_essential': True})
     
+    count = 0
     for loan in active_loans:
-        loan.register_payment()
-        Transaction.objects.create(
-            date=timezone.now(),
-            is_income=False,
-            category=cat,
-            amount=loan.monthly_quota,
-            description=f"{loan.entity} - {loan.loan_type}"
-        )
-    return JsonResponse({'status': 'success', 'message': 'Todas las cuotas del mes descontadas y registradas como Egresos.'})
+        if loan.register_payment():
+            Transaction.objects.create(
+                date=timezone.now(),
+                is_income=False,
+                category=cat,
+                amount=loan.monthly_quota,
+                description=f"{loan.entity.name if loan.entity else 'N/A'} - {loan.loan_type.name if loan.loan_type else 'N/A'}"
+            )
+            count += 1
+    return JsonResponse({'status': 'success', 'message': f'{count} cuotas descontadas exitosamente y registradas como Egresos.'})
 
 @login_required
 @csrf_exempt
@@ -144,9 +154,23 @@ class DashboardView(LoginRequiredMixin, View):
             date__year=year, date__month=month, is_income=True
         ).aggregate(t=Sum('amount'))['t'] or Decimal('0.0')
         
-        # Próximos Vencimientos (Loans)
-        active_loans = Loan.objects.filter(remaining_quotas__gt=0)
-        total_loan_quota = sum(loan.monthly_quota for loan in active_loans)
+        # Próximos Vencimientos (Loans) con validación
+        active_loans_qs = Loan.objects.filter(remaining_quotas__gt=0)
+        cat_loan = BudgetCategory.objects.filter(name="Créditos Bancarios").first()
+        active_loans_data = []
+        for loan in active_loans_qs:
+            desc = f"{loan.entity.name if loan.entity else 'N/A'} - {loan.loan_type.name if loan.loan_type else 'N/A'}"
+            is_paid = Transaction.objects.filter(
+                category=cat_loan, date__year=year, date__month=month, description=desc
+            ).exists() if cat_loan else False
+            active_loans_data.append({
+                'id': loan.id,
+                'entity': loan.entity,
+                'loan_type': loan.loan_type,
+                'monthly_quota': loan.monthly_quota,
+                'remaining_quotas': loan.remaining_quotas,
+                'is_paid': is_paid
+            })
         
         # Gastos Reales
         gastos_reales = Transaction.objects.filter(
@@ -207,7 +231,7 @@ class DashboardView(LoginRequiredMixin, View):
             'remanente_planificado': remanente_planificado,
             'progreso_presupuesto': min(100, round(progreso_presupuesto, 1)),
             'cat_status': cat_status,
-            'active_loans': active_loans,
+            'active_loans': active_loans_data,
             'year': year,
             'month': month
         }
@@ -347,8 +371,20 @@ class BudgetManageDetailsView(LoginRequiredMixin, UpdateView):
             context['formset'] = BudgetDetailFormSet(instance=self.object)
         context['title'] = f'Gestionar Detalles: {self.object.title}'
         
-        loans_sum = Loan.objects.filter(remaining_quotas__gt=0).aggregate(Sum('monthly_quota'))['monthly_quota__sum'] or 0
-        context['total_loans_quota'] = loans_sum
+        active_loans_qs = Loan.objects.filter(remaining_quotas__gt=0)
+        cat_loan = BudgetCategory.objects.filter(name="Créditos Bancarios").first()
+        b_year = self.object.year
+        b_month = self.object.month
+        
+        loans_data = []
+        for loan in active_loans_qs:
+            loans_data.append({
+                'id': loan.id,
+                'entity': loan.entity.name if loan.entity else 'N/A',
+                'type': loan.loan_type.name if loan.loan_type else 'N/A',
+                'quota': float(loan.monthly_quota)
+            })
+        context['loans_data'] = loans_data
         
         return context
 
